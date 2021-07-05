@@ -1,0 +1,18 @@
+apiVersion: autoscaling/v2beta2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: portal-noticias-hpa
+spec:
+  scaleTargetRef: # A seguir, vou definir qual tipo de Resource vou criar automaticamente quando o recurso computacional aumentar. No caso será o Deployment chamado portal-noticias-deployment
+    apiVersion: apps/v1
+    kind: Deployment 
+    name: portal-noticias-deployment
+  minReplicas: 1 # Quantidade mínima, que sempre vai ter!
+  maxReplicas: 10 # Quantidade máxima, não importa se o recurso computacional estiver muito elevado...
+  metrics: # A seguir, começo a definir qual parâmetro de recurso computacional será analisado para poder criar o recurso automaticamente.
+    - type: Resource
+      resource:
+        name: cpu # O parâmetro de analise será a CPU
+        target:
+          type: Utilization # Defino que vou analisar o uso de CPU
+          averageUtilization: 50 # Defini no Deployment chamado portal-noticias-deployment que seu Pod faz uso de 10m de Core, e aqui estou definindo que quando o mesmo chegar em 50% de uso devemos criar mais Deployment

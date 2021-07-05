@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: sistema-noticias-statefulset
+spec:
+  replicas: 1
+  template: # Daqui começo a definir os "Pod's"
+    metadata:
+      labels:
+        app: sistema-noticias
+      name: sistema-noticias
+    spec:
+      containers:
+        - name: sistema-noticias-container
+          image: aluracursos/sistema-noticias:1
+          ports:
+            - containerPort: 80
+          envFrom:
+            - configMapRef:
+                name: sistema-configmap
+          livenessProbe: # A seguir vou definir que tipo de teste quero fazer para verificar se APP está funcionando
+            httpGet: # O teste que vou fazer sera uma requsição get
+              path: / # A barra indica que é localhost o endereço que vou fazer a request get. 
+              port: 80 # Utilizei essa porta, pois e nessa que o container usa dentro do Cluster, veja o valor de containerPort 
+            periodSeconds: 10 # De quanto em quanto tempo vai rodar o test
+            failureThreshold: 3 # Quantiade de falha que vou aceitar
+            initialDelaySeconds: 20 # Tempo de folga que vou dar para reiniciar o Container só depois rodar os testes  
+          readinessProbe: # A seguir vou definir que tipo de teste quero fazer para verificar se APP está pronta para receber request
+            httpGet: # O teste que vou fazer sera uma requsição get
+              path: /inserir_noticias.php # Para esse endereço que vou fazer request.
+              port: 80 # Utilizei essa porta, pois e nessa que o container usa dentro do Cluster, veja o valor de containerPort 
+            periodSeconds: 10 # De quanto em quanto tempo vai rodar o test
+            failureThreshold: 5 # Quantiade máxima que vou verficiar se o Pod está pronto. Se passar disso vou ignorar e passar a utilizar o Pod.
+            initialDelaySeconds: 3 # Tempo de folga que vou dar para reiniciar o Container só depois rodar os testes  
+          volumeMounts:
+            - name: imagens
+              mountPath: /var/www/html/upload # Diretorio do container que guarda as imagens
+            - name: sessao
+              mountPath: /tmp # Diretorio do container que guarda a sessão
+      volumes:
+        - name: imagens
+          persistentVolumeClaim: #Temos que criar esses PVC's
+            claimName: imagens-pvc 
+        - name: sessao
+          persistentVolumeClaim:
+            claimName: sessao-pvc               
+  selector:
+    matchLabels:
+      app: sistema-noticias
+  serviceName: svc-sistema-noticias  #Serviço que permite o acesso externo!    

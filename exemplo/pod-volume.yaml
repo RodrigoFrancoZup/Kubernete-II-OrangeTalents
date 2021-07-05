@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-volume
+spec:
+  containers:
+    - name: nginx-container
+      image: nginx:latest
+      volumeMounts: 
+        - mountPath: /volume-dentro-do-container # Pasta a ser utilizada no Container para guardar os dados
+          name: primeiro-volume # O volume que de fato vou usar, que foi criado no Cluster
+    - name: jenkins-container
+      image: jenkins:2.60.3
+      volumeMounts: 
+        - mountPath: /volume-dentro-do-container
+          name: primeiro-volume
+  volumes: # Daqui pra baixo estou criando o volume no Cluster
+    - name: primeiro-volume
+      hostPath:
+        path: /C/Users/Rodrigo/Desktop/primeiro-volume
+        type: DirectoryOrCreate
+
+# Não esqueça de desabilidar o WSL 2 do Docker (Para isso teremos que Habilidar a Virtualização na Bios)
+# Temos que ir em config -> Resources -> File Sharing e adicionar o diretório Path do Volume, no caso: C:\Users\Rodrigo\Desktop\primeiro-volume

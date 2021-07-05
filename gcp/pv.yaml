@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-1
+spec: # como sei quais dados informados devem ser inseridos? Doc. de gcePersistentDisk
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  gcePersistentDisk:
+    pdName: pv-disk # Nome que dei no Disk lá no Google
+  storageClassName: standard

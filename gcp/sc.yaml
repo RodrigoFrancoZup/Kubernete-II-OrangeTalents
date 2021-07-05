@@ -1,0 +1,9 @@
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: slow # Esse será o nome do StorageClass
+provisioner: kubernetes.io/gce-pd # Essa linha indica que será provisionado um StorageClass lá no GCP
+parameters:
+  type: pd-standard
+  fstype: ext4
+  replication-type: none

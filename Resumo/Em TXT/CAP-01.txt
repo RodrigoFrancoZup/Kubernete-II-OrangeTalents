@@ -1,0 +1,233 @@
+Capítulo 01 -  Conhecendo ReplicaSets e Deployments
+
+Nesse capítulo nós aprendemos:
+
+⦁	Sobre o Resource ReplicaSets (RS). Assim como temos o Pod que é uma Capsula que guarda Containers, o ReplicaSet é uma Capsula que guarda Pod's, mas lembre-se, podemos criar Pod's sem ReplicaSet;
+
+⦁	Pense no ReplicaSet como uma caixinha que está dentro do Cluster, e dentro da caixinha do ReplicaSet pode ter um ou vários Pod's
+
+⦁	A vantagem de criar Pod's dentro de ReplicaSets é que dessa forma podemos replicar os Pod's, ou seja, como mesmo arquivo declarativo podemos dizer que queremos criar X quantidade de Pod's e o mais legal que o ReplicaSet passa a administrar essa quantidade, ou seja, se um Pod parar de funcionar o mesmo será deletado e um novo será criado;
+
+⦁	ReplicaSet sempre possui um número de Desired (quantidade desejada/configurada de Pod's) e o número Ready (quantidade que está de fato funcionando). O ReplicaSet vai garantir que esses dois números sejam iguais;
+
+⦁	Vantagem de se ter réplicas é redundancia para falhas, ou seja, se um falhar o sistema estará rodando em outras instancias. Outro motivo é permitir o balanceamento de carga;
+
+⦁	Vamos deletar o Pod portal-noticias do nosso projeto. Para isso rode o comando:
+
+	kubectl delete pod portal-noticias
+
+⦁	Vamos criar um ReplicaSet. Para isso crie o arquivo portal-noticias-replicaset.yaml, esse arquivo terá:
+
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: portal-noticias-replicaset
+spec:
+  template:
+    metadata: 
+      name: portal-noticias
+      labels:
+        app: portal-noticias 
+    spec:
+      containers:
+        - name: portal-noticias-container
+          image: aluracursos/portal-noticias:1
+          ports:
+            - containerPort: 80
+          envFrom:
+            - configMapRef:
+                name: portal-configmap  
+  replicas: 3 
+  selector:
+    matchLabels:
+      app: portal-noticias 
+
+Obs: Veja que começamos a definir o ReplicaSet normalmente, igual a outros Resources, a única diferença inicial foi em apiVersion que usamos apps/v1.
+A definição do Pod que ficará dentro do ReplicaSet começa após a "tag" template, dela pra baixo é definição do Pod.
+Ganhamos a "Tag" replicas que define a quantidade de Pod's que vamos criar dentro do ReplicaSet com a mesma configuração.
+Ganhamos também a "Tag" selector: matchLabels: chave/valor. Esta serve para podermos "amarrar/vincular" que o Pod criado com aquele label ficará dentro do ReplicaSet, no nosso caso amarramos o Pod com chave/valor app: portal-noticias dentro do ReplicaSet portal-noticias-replicaset.
+
+⦁	Podemos ver nossos ReplicaSet com o comando:
+		
+		kubectl get rs
+	ou
+		kubectl get ReplicaSet
+
+⦁	Podemos ver que teremos 3 Pod's cujo container são da imagem portal-noticias:1. Para isso rode o comando:
+
+		kubectl get pods
+
+Obs: O nome desses Pod's terão o nome do nosso ReplicaSet mais um ID aleatório no fim, por exemplo:
+	portal-noticias-replicaset-jcrk7
+	portal-noticias-replicaset-rpgbw
+
+⦁	Agora se deletarmos algum Pod portal-noticias-replicaset-x o ReplicaSet irá construir um novo de forma automática, pois definimos que queremos ter sempre 3 replicas!
+
+⦁	Os SVC continuam funcionando, pois eles foram configurados para conversarem com um Pod cujo label é portal-noticias e os Pod's continuam tendo esses label's;
+
+⦁	Resource Deployments:
+
+Esse recurso é uma caixinha que fica dentro do Cluster e que vai encapsular ReplicaSet.
+Quando criamos um Deploments o mesmo já cria automaticamente o seu ReplicaSet
+A vantagem de se criar ReplicaSet dentro de Deployments é que com o Deplyments é póssivel termos controle de versões e um histórico de versões dos Pod's/Imagens.
+
+⦁	Criando um Deployments de exemplo (ainda fora do projeto). Para isso criamos o arquivo nginx-deployment.yaml:
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+spec:
+  replicas: 3
+  template:
+    metadata:
+      name: nginx-pod
+      labels:
+        app: nginx-pod
+    spec:
+      containers:
+        - name: nginx-container
+          image: nginx:stable
+          ports:
+            - containerPort: 80
+  selector:
+    matchLabels:
+      app: nginx-pod     
+
+Obs: Veja que sua definição é qauase identica com a criação de ReplicaSet, o que muda é apenas o Kind. A "tag" replicas só tiramos do fim do arquivo e colocamos no inicio, mas está na mesma hierarquia/espaçamento.
+
+⦁	Podemos ver os pods criados com o comando:
+		
+		kubectl get pods
+
+⦁	Podemos ver o Deployment criado com o comando:
+
+		kubectl get Deployments
+
+⦁	E podemos ver o ReplicaSet criado, pois um Deployment sempre cria um ReplicaSet de forma automática, com o comando:
+
+		kubectl get rs
+
+⦁	Consultando o histórico de um Deployment:
+
+		kubectl rollout history deployment nginx-deployment
+
+Veremos a versão do Deployment (Revision) e a mudança que houve (Change-Cause);
+
+Vamos forçar a mudança na imagem do Pod, em image: nginx:stable vamos colocar image: nginx:latest, e depois rodar o comando "kubectl apply -f .\nginx-deployment.yaml --record"
+
+Ao consultar novamente o histórico, veremos que teremos a versão 2 e a mudança será o comando que rodamos, no caso: kubectl.exe apply --filename=.\nginx-deployment.yaml --record=true
+
+Só que essa mensagem que ficou registrada no histórico não é muito clara, podemos alterá-la com o comando:
+
+	kubectl annotate deployment nginx-deployment kubernetes.io/change-cause="Definindo a imagem com a versão latest"
+
+Agora a mensagem que ficou no histórico na revisão 2 (A mensagem sempre vai para última versão) é Definindo a imagem com a versão latest
+
+⦁	Voltando para uma versão antiga, ou seja, Rollback, sem ter que alterar o arquivo descritivo do recurso:
+
+	kubectl rollout undo deployment nginx-deployment --to-revision=1
+
+Nesse caso nossos Pod's voltarão para a versão 1
+
+
+⦁	Aplicando Deployment no nosso Projeto de noticias:
+
+Primeiro de tudo deletei o Deployment do nginx, pois foi somente para aprendermos o conceito.
+Deletei tambem o ReplicaSet portal-noticias-replicaset.
+
+
+⦁	Criando o Deployment para o projeto, para isso criei o arquivo portal-noticias-deployment.yaml:
+
+apiVersion: apps/v1
+kind: Deployment 
+metadata:
+  name: portal-noticias-deployment
+spec:
+  template:
+    metadata: 
+      name: portal-noticias
+      labels:
+        app: portal-noticias 
+    spec:
+      containers:
+        - name: portal-noticias-container
+          image: aluracursos/portal-noticias:1
+          ports:
+            - containerPort: 80
+          envFrom:
+            - configMapRef:
+                name: portal-configmap  
+  replicas: 3 
+  selector:
+    matchLabels:
+      app: portal-noticias 
+
+⦁	Criando de fato o recurso declarado, para isso rodar o comando:
+
+		kubectl apply -f \.portal-noticias-deployment
+
+⦁	Vendo o histórico deste Deployment:
+	
+		kubectl rollout history deployment portal-noticias-deployment	
+
+⦁	Alterando a mensagem do histórico da última versão:
+
+	kubectl annotate deployment portal-noticias-deployment kubernetes.io/change-cause="Criando portal de notícias na versão 1"
+	
+Após isso podemos confirmar a mensagem vendo novamente o histórico.
+
+
+⦁	Vamos agora criar um Deployment para guardar os Pod's db-noticias e sistema-noticias. Para isso vamos primeiro deletar esses dois Pod's e depois criar o arquivo descritivo para cada um;
+
+⦁	Criando sistema-noticias-deployment.yaml com o seguinte contúdo:
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sistema-noticias-deployment
+spec:
+  replicas: 1
+  template:
+    metadata:
+      name: sistema-noticias
+      labels:
+        app: sistema-noticias
+    spec:
+      containers:
+        - name: sistema-noticias-container
+          image: aluracursos/sistema-noticias:1
+          ports:
+            - containerPort: 80
+          envFrom:
+            - configMapRef:
+                name: sistema-configmap
+  selector:
+    matchLabels:
+      app: sistema-noticias
+
+⦁	Criando o Deployment para o db-noticias, devemos criar o arquivo db-noticias-deployment.yaml:
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: db-noticias-deployment
+spec:
+  replicas: 1
+  template:
+    metadata:
+      name: db-noticias
+      labels:
+        app: db-noticias
+    spec:
+      containers:
+        - name: db-container
+          image: aluracursos/mysql-db:1
+          ports:
+            - containerPort: 3306
+          envFrom:
+            - configMapRef:
+                name: db-configmap
+  selector:
+    matchLabels:
+      app: db-noticias

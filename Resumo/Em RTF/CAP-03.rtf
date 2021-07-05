@@ -1,0 +1,254 @@
+{\rtf1\ansi\ansicpg1252\deff0\nouicompat\deflang1046{\fonttbl{\f0\fnil\fcharset0 Arial;}{\f1\fnil\fcharset2 Symbol;}}
+{\colortbl ;\red0\green0\blue255;}
+{\*\generator Riched20 10.0.19041}\viewkind4\uc1 
+\pard\sa200\sl276\slmult1\fs24\lang22 Cap\'edtulo 03 - Storage Classes e StatefulSets\par
+\par
+Nesse cap\'edtulo n\'f3s aprendemos:\par
+\par
+
+\pard{\pntext\f1\'B7\tab}{\*\pn\pnlvlblt\pnf1\pnindent0{\pntxtb\'B7}}\fi-360\li720\sa200\sl276\slmult1 Mais Resources (recursos) cuja finalidade \'e9 armazenar dados. Vamos falar sobre StorageClasses e StatefulSets;\par
+
+\pard\sa200\sl276\slmult1\par
+
+\pard{\pntext\f1\'B7\tab}{\*\pn\pnlvlblt\pnf1\pnindent0{\pntxtb\'B7}}\fi-360\li720\sa200\sl276\slmult1 No cap\'edtulo anterior tivemos que criar Manualmente l\'e1 no GCP:\par
+
+\pard\sa200\sl276\slmult1\par
+I) O Disco, que no caso era uma m\'e1quina que escolhemos o tamanho do seu HD/SSD que armazenaria os dados;\par
+II) PersistentVolume (PV): Recurso indepentende do Pod e respons\'e1vel por abstrair como o Cloud Provider escolhido (no caso GCP) armazena os dados;\par
+III) PersistentVolumeClain (PVC): serve como passaporte, "meio de campo" para o Pod acessar o PV;\par
+IV) Pod, que no caso tem a imagem da  aplica\'e7\'e3o rodando e que vai acessar o PV para assim poder ter acesso aos arquivos;\line\par
+
+\pard{\pntext\f1\'B7\tab}{\*\pn\pnlvlblt\pnf1\pnindent0{\pntxtb\'B7}}\fi-360\li720\sa200\sl276\slmult1 Com o Storage Class (SC) vamos poder criar dinamicamente o Disco e o PersistentVolume (PV), conforme a necessidade. No caso vamos ter que definir um Storage Classes, construir o Pod (Pode ser ReplicaSet, Deployment) e o PersistentVolumeClaim, quando o Pod for vinculado ao PVC o Disco e o PV ser\'e3o criados;\line\par
+{\pntext\f1\'B7\tab}Foi limpo o Cluser l\'e1 no GCP, todos recursos foram apagados;\par
+
+\pard\sa200\sl276\slmult1\par
+
+\pard{\pntext\f1\'B7\tab}{\*\pn\pnlvlblt\pnf1\pnindent0{\pntxtb\'B7}}\fi-360\li720\sa200\sl276\slmult1 Vamos criar o arquivo de defini\'e7\'e3o de Storage Classes, para isso criei o arquivo sc.yaml, com o seguinte conte\'fado:\par
+
+\pard\sa200\sl276\slmult1\par
+apiVersion: storage.k8s.io/v1\par
+kind: StorageClass\par
+metadata:\par
+  name: slow\par
+provisioner: kubernetes.io/gce-pd\par
+parameters:\par
+  type: pd-standard\par
+  fstype: ext4\par
+  replication-type: none\par
+\par
+Lembre-se que podemos pegar alguns exemplos no site do Kubernetes, esse mesmo foi pego no site: {{\field{\*\fldinst{HYPERLINK https://kubernetes.io/docs/concepts/storage/storage-classes/ }}{\fldrslt{https://kubernetes.io/docs/concepts/storage/storage-classes/\ul0\cf0}}}}\f0\fs24  na op\'e7\'e3o GCEPersistentDisk\par
+\par
+
+\pard{\pntext\f1\'B7\tab}{\*\pn\pnlvlblt\pnf1\pnindent0{\pntxtb\'B7}}\fi-360\li720\sa200\sl276\slmult1 Vamos criar com esse aquivo (sc.yaml) um StorageClass l\'e1 no GPC, basta criar esse aquivo atrav\'e9s do Terminal do Cluster do GPC. Basta fazer no terminal do GCP:\par
+
+\pard\sa200\sl276\slmult1\par
+cat > sc.yaml\line //Abaixo, sem dar enter colar o conte\'fado todo do arquivo definido anteriormente, e depois dar enter\par
+\par
+Ap\'f3s o "enter" basta rodar "kubectl apply -f .\\sc.yaml"\par
+\par
+
+\pard{\pntext\f1\'B7\tab}{\*\pn\pnlvlblt\pnf1\pnindent0{\pntxtb\'B7}}\fi-360\li720\sa200\sl276\slmult1 Ainda n\'e3o haver\'e1 cria\'e7\'e3o de disco e nem de PV automaticamente, precisamos criar ainda o PVC. Para isso criei o arquivo pvc-sc.yaml com o seguinte conte\'fado:\par
+
+\pard\sa200\sl276\slmult1\par
+apiVersion: v1\par
+kind: PersistentVolumeClaim\par
+metadata:\par
+  name: pvc-2\par
+spec:\par
+  accessModes:\par
+    - ReadWriteOnce\par
+  resources:\par
+    requests:\par
+      storage: 10Gi\par
+  storageClassName: slow #Antes era standard pois usava o SC padr\'e3o do Cloud Provider, agora criamos o nosso SC chamado slow\par
+\par
+
+\pard{\pntext\f1\'B7\tab}{\*\pn\pnlvlblt\pnf1\pnindent0{\pntxtb\'B7}}\fi-360\li720\sa200\sl276\slmult1 Agora precisamos criar de fato esse arquivo l\'e1 no GCP, ou seja, devemos rodar o comando no terminal do Cluster do GCP:\par
+
+\pard\sa200\sl276\slmult1\par
+cat > pvc-sc.yaml\line //Abaixo, sem dar enter colar o conte\'fado todo do arquivo definido anteriormente, e depois dar enter\par
+\par
+Ap\'f3s o "enter" basta rodar "kubectl apply -f .\\pvc-sc.yaml"\par
+\par
+
+\pard{\pntext\f1\'B7\tab}{\*\pn\pnlvlblt\pnf1\pnindent0{\pntxtb\'B7}}\fi-360\li720\sa200\sl276\slmult1 Agora podemos ver que o pvc foi criado com o comando "kubectl get pvc";\line\par
+{\pntext\f1\'B7\tab}E se rodarmos o comando "kubectl get pv" vamos ver que um PV foi criado e  tamb\'e9m podemos ir na se\'e7\'e3o de Disk do GCP e veremos que j\'e1 foi criado um Disco, ou seja, agora j\'e1 est\'e1 funcionando (Disco e PV s\'e3o criados automaticamente)!\par
+
+\pard\sa200\sl276\slmult1\par
+
+\pard{\pntext\f1\'B7\tab}{\*\pn\pnlvlblt\pnf1\pnindent0{\pntxtb\'B7}}\fi-360\li720\sa200\sl276\slmult1 O que falta agora \'e9 criar um Pod (poder\'e1 ser ReplicaSet, Deployment) que ter\'e1 seu volume vinculado ao PVC (\'c9 assim que fazemos a conversa entre Pod e PVC). Vamos criar o arquivo pod-pvc-sc.yaml, com o seguinte conteudo:\par
+
+\pard\sa200\sl276\slmult1\par
+apiVersion: v1\par
+kind: Pod\par
+metadata:\par
+  name: pod-sc\par
+spec:\par
+  containers:\par
+    - name: nginx-container\par
+      image: nginx:latest\par
+      volumeMounts: \par
+        - mountPath: /volume-dentro-do-container\par
+          name: primeiro-pv \par
+  volumes: \par
+    - name: primeiro-pv\par
+      persistentVolumeClaim:\par
+        claimName: pvc-2 \par
+\par
+
+\pard{\pntext\f1\'B7\tab}{\*\pn\pnlvlblt\pnf1\pnindent0{\pntxtb\'B7}}\fi-360\li720\sa200\sl276\slmult1 Agora precisamos criar de fato esse arquivo l\'e1 no GCP, ou seja, devemos rodar o comando no terminal do Cluster do GCP:\par
+
+\pard\sa200\sl276\slmult1\par
+cat > pod-pvc-sc.yaml\line //Abaixo, sem dar enter colar o conte\'fado todo do arquivo definido anteriormente, e depois dar enter\par
+\par
+
+\pard{\pntext\f1\'B7\tab}{\*\pn\pnlvlblt\pnf1\pnindent0{\pntxtb\'B7}}\fi-360\li720\sa200\sl276\slmult1 Agora sim, temos o Pod chamado pod-sc vinculado a um volume que \'e9 criado dinamicamente via Storage Class (SC). Logo se entramos no terminal desse pod com o comando "kubectl exec -it pod-sc -- bash" entrar na pasta volume-dentro-do-container com o comando "cd volume-dentro-do-container" e criar um arquivo, esse arquivo durar\'e1 at\'e9 deletarmos o Disco, pode o Pod morrer que nada acontecer\'e1!\par
+
+\pard\sa200\sl276\slmult1\par
+
+\pard{\pntext\f1\'B7\tab}{\*\pn\pnlvlblt\pnf1\pnindent0{\pntxtb\'B7}}\fi-360\li720\sa200\sl276\slmult1 Se matarmos o PVC e o SC o Disco criado dinamicamente tamb\'e9m ser\'e1 apagado!\par
+
+\pard\sa200\sl276\slmult1\par
+
+\pard{\pntext\f1\'B7\tab}{\*\pn\pnlvlblt\pnf1\pnindent0{\pntxtb\'B7}}\fi-360\li720\sa200\sl276\slmult1 Recurso Stateful Set:\par
+
+\pard\sa200\sl276\slmult1\'c9 muito parecido com o Recurso Deployment, mas no caso os "Pod's" criados dentro desse recurso v\'e3o manter seu estado, ou seja, se o Pod for reiniciado os arquivos s\'e3o mantidos.\par
+Todo Pod dentro do Stateful Set ter\'e1 seu PVC e seu PV.\par
+Cada Pod dentro do Stateful Set ganha um identificador, ordinal, vamos dar exemplo o primeiro Pod ganhou idetentificador 1, se ele morrer o Pod a ser criado no lugar tamb\'e9m ter\'e1 o identificador 1, e \'e9 por isso que ele ter\'e1 acesso ao mesmo PVC.\par
+\par
+
+\pard{\pntext\f1\'B7\tab}{\*\pn\pnlvlblt\pnf1\pnindent0{\pntxtb\'B7}}\fi-360\li720\sa200\sl276\slmult1 Criando um StateFul Set agora no projeto noticias. Vamos criar o arquivo sistema-noticias-statefullset.yaml, com o seguinte arquivo:\par
+
+\pard\sa200\sl276\slmult1\par
+apiVersion: apps/v1\par
+kind: StatefulSet\par
+metadata:\par
+  name: sistema-noticias-statefulset\par
+spec:\par
+  replicas: 1\par
+  template: # Daqui come\'e7o a definir os "Pod's"\par
+    metadata:\par
+      labels:\par
+        app: sistema-noticias\par
+      name: sistema-noticias\par
+    spec:\par
+      containers:\par
+        - name: sistema-noticias-container\par
+          image: aluracursos/sistema-noticias:1\par
+          ports:\par
+            - containerPort: 80\par
+          envFrom:\par
+            - configMapRef:\par
+                name: sistema-configmap\par
+  selector:\par
+    matchLabels:\par
+      app: sistema-noticias\par
+  serviceName: svc-sistema-noticias  #Servi\'e7o que permite o acesso externo!\par
+\par
+
+\pard{\pntext\f1\'B7\tab}{\*\pn\pnlvlblt\pnf1\pnindent0{\pntxtb\'B7}}\fi-360\li720\sa200\sl276\slmult1 Nesse ponto criamos o nosso Stateful Set, mas ainda n\'e3o temos o PV o PVC, vamos fazer isso acontecer a seguir;\line\par
+{\pntext\f1\'B7\tab}Vamos criar um PVC que vai acessar o PV que guardar\'e1 as imagens, para isso criei o arquivo imagens-pvc.yaml, com o seguinte conteudo:\par
+
+\pard\sa200\sl276\slmult1\par
+apiVersion: v1\par
+kind: PersistentVolumeClaim\par
+metadata:\par
+  name: imagens-pvc\par
+spec:\par
+  accessModes:\par
+    - ReadWriteOnce\par
+  resources:\par
+    requests:\par
+      storage: 1Gi\par
+
+\pard\sa200\sl276\slmult1\par
+
+\pard{\pntext\f1\'B7\tab}{\*\pn\pnlvlblt\pnf1\pnindent0{\pntxtb\'B7}}\fi-360\li720\sa200\sl276\slmult1 Vamos criar um PVC que vai acessar o PV que guardar\'e1 a sessao, para isso criei o arquivo sessao-pvc.yaml, com o seguinte conteudo:\par
+
+\pard\sa200\sl276\slmult1\par
+apiVersion: v1\par
+kind: PersistentVolumeClaim\par
+metadata:\par
+  name: sessao-pvc\par
+spec:\par
+  accessModes:\par
+    - ReadWriteOnce\par
+  resources:\par
+    requests:\par
+      storage: 1Gi\par
+\par
+
+\pard{\pntext\f1\'B7\tab}{\*\pn\pnlvlblt\pnf1\pnindent0{\pntxtb\'B7}}\fi-360\li720\sa200\sl276\slmult1 Agora vamos editar o arquivo descritivo sistema-noticias-statefullset.yaml, vamos adicionar nele os PVC. O arquivo ficar\'e1 assim: \par
+
+\pard\sa200\sl276\slmult1\par
+apiVersion: apps/v1\par
+kind: StatefulSet\par
+metadata:\par
+  name: sistema-noticias-statefulset\par
+spec:\par
+  replicas: 1\par
+  template: # Daqui come\'e7o a definir os "Pod's"\par
+    metadata:\par
+      labels:\par
+        app: sistema-noticias\par
+      name: sistema-noticias\par
+    spec:\par
+      containers:\par
+        - name: sistema-noticias-container\par
+          image: aluracursos/sistema-noticias:1\par
+          ports:\par
+            - containerPort: 80\par
+          envFrom:\par
+            - configMapRef:\par
+                name: sistema-configmap\par
+          volumeMounts:\par
+            - name: imagens\par
+              mountPath: /var/www/html/upload # Diretorio do container que guarda as imagens\par
+            - name: sessao\par
+              mountPath: /tmp # Diretorio do container que guarda a sess\'e3o\par
+      volumes:\par
+        - name: imagens\par
+          persistentVolumeClaim: #Temos que criar esses PVC's\par
+            claimName: imagens-pvc \par
+        - name: sessao\par
+          persistentVolumeClaim:\par
+            claimName: sessao-pvc               \par
+  selector:\par
+    matchLabels:\par
+      app: sistema-noticias\par
+  serviceName: svc-sistema-noticias  #Servi\'e7o que permite o acesso externo!    \par
+\par
+
+\pard{\pntext\f1\'B7\tab}{\*\pn\pnlvlblt\pnf1\pnindent0{\pntxtb\'B7}}\fi-360\li720\sa200\sl276\slmult1 Vamos dar um "kubectl apply -f nomeDosArquivos" para os \'faltimos tr\'eas arquivos criados.\par
+
+\pard\sa200\sl276\slmult1\par
+
+\pard{\pntext\f1\'B7\tab}{\*\pn\pnlvlblt\pnf1\pnindent0{\pntxtb\'B7}}\fi-360\li720\sa200\sl276\slmult1 Podemos dar agora "kubectl get pvc" e veremos que j\'e1 temos os PVC criados, s\'f3 que estranhamente eles j\'e1 est\'e3o utilizando um volume (j\'e1 est\'e3o Bound), s\'f3 que n\'f3s n\'e3o criamos nenhum Volume, como isso ocorreu? \'c9 que o Cluster j\'e1 vem com um Storage Class pad\'e3o, e como criamos um PVC sem definir qual PV vamos usar ele (Storage Class) criou um PV para n\'f3s!\par
+
+\pard\sa200\sl276\slmult1\par
+
+\pard{\pntext\f1\'B7\tab}{\*\pn\pnlvlblt\pnf1\pnindent0{\pntxtb\'B7}}\fi-360\li720\sa200\sl276\slmult1\'c9 recomend\'e1vel deletar o sistema-noticias-statefullset.yaml e cri\'e1-lo ap\'f3s ter criado os PVC's, assim ocorrer\'e1 o Bound correto!\par
+
+\pard\sa200\sl276\slmult1\par
+
+\pard{\pntext\f1\'B7\tab}{\*\pn\pnlvlblt\pnf1\pnindent0{\pntxtb\'B7}}\fi-360\li720\sa200\sl276\slmult1 Para tudo voltar a funcionar deu deixei rodando:\par
+
+\pard\sa200\sl276\slmult1 db-configmap\par
+db-noticias-deployment\par
+imagens-pvc\par
+portal-configmap\par
+portal-noticias-deployment\par
+sessao-pvc\par
+sistema-configmap\par
+sistema-noticias-statefullset\par
+svc-db-noticias\par
+svc-portal-noticias\par
+svc-sistema-noticias\par
+\par
+
+\pard\sa200\sl276\slmult1\par
+\par
+\par
+\par
+}
+ 

@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment #Deployment já cria uma ReplicaSet por baixo dos panos
+metadata:
+  name: portal-noticias-deployment
+spec:
+  template:
+    metadata: #Dessa linha para baixo será a config do Pod
+      name: portal-noticias
+      labels:
+        app: portal-noticias #Esse valor vamos usar para vincular esse Pod a um ReplicaSet (usado lá no matchLabels)
+    spec:
+      containers:
+        - name: portal-noticias-container
+          image: aluracursos/portal-noticias:1
+          ports:
+            - containerPort: 80
+          envFrom:
+            - configMapRef:
+                name: portal-configmap
+          livenessProbe: # A seguir vou definir que tipo de teste quero fazer para verificar se APP está funcionando
+            httpGet: # O teste que vou fazer sera uma requsição get
+              path: / # A barra indica que é localhost o endereço que vou fazer a request get. O portal só tem o endereço localhost
+              port: 80 # Utilizei essa porta, pois e nessa que o container usa dentro do Cluster, veja o valor de containerPort 
+            periodSeconds: 10 # De quanto em quanto tempo vai rodar o test
+            failureThreshold: 3 # Quantiade de falha que vou aceitar
+            initialDelaySeconds: 20 # Tempo de folga que vou dar para reiniciar o Container só depois rodar os testes  
+          readinessProbe: # A seguir vou definir que tipo de teste quero fazer para verificar se APP está pronta para receber request
+            httpGet: # O teste que vou fazer sera uma requsição get
+              path: / # A barra indica que é localhost o endereço que vou fazer a request get. O portal só tem o endereço localhost
+              port: 80 # Utilizei essa porta, pois e nessa que o container usa dentro do Cluster, veja o valor de containerPort 
+            periodSeconds: 10 # De quanto em quanto tempo vai rodar o test
+            failureThreshold: 5 # Quantiade máxima que vou verficiar se o Pod está pronto. Se passar disso vou ignorar e passar a utilizar o Pod.
+            initialDelaySeconds: 3 # Tempo de folga que vou dar para reiniciar o Container só depois rodar os testes  
+          resources:
+            requests:
+              cpu: 10m
+  replicas: 3 #Define a quantidade de replcias que queremos do Pod's
+  selector:
+    matchLabels:
+      app: portal-noticias #Aqui estou vinculando o ReplicaSet a um Pod cujo label desse Pod será app: portal-noticias
+
+
+

@@ -1,0 +1,208 @@
+{\rtf1\ansi\ansicpg1252\deff0\nouicompat\deflang1046{\fonttbl{\f0\fnil\fcharset0 Arial;}{\f1\fnil\fcharset2 Symbol;}}
+{\*\generator Riched20 10.0.19041}\viewkind4\uc1 
+\pard\sa200\sl276\slmult1\fs24\lang22 Cap\'edtulo 02 - Persistindo dados com o Kubernetes\par
+\par
+Nesse cap\'edtulo n\'f3s aprendemos:\par
+\par
+
+\pard{\pntext\f1\'B7\tab}{\*\pn\pnlvlblt\pnf1\pnindent0{\pntxtb\'B7}}\fi-360\li720\sa200\sl276\slmult1 Do jeito que estamos fazendo estamos tendo o seguinte problema, quando um Pod \'e9 encerrado os seus arquivos s\'e3o perdidos, basta ver que quando cadastramos uma mensagem e apagamos o Pod do bd-noticias e criamos outro a noticia cadastrada \'e9 perdida;\par
+
+\pard\sa200\sl276\slmult1\par
+
+\pard{\pntext\f1\'B7\tab}{\*\pn\pnlvlblt\pnf1\pnindent0{\pntxtb\'B7}}\fi-360\li720\sa200\sl276\slmult1 H\'e1 diversos Resources com a finalidade de persistir dados, alguns deles s\'e3o: Volume, Persistent Volume(PV), Persistent Volume Claim (PVC) e StorageClass (SC);\line\par
+{\pntext\f1\'B7\tab}Volume:\par
+
+\pard\sa200\sl276\slmult1\'c9 um Resource do Kubernete para persistir dados. Pense que ele ser\'e1 um "Pod" espec\'edfico para guardar dados. O mesmo volume pode ser utilizado com diversos containers (lembre-se, um Pod pode ter diversos Containers), ou seja, diversos containers poder\'e1 ler e escrever no mesmo volume, mas o ciclo de vida de um Volume est\'e1 sempre vinculado ao Pod desses contairners, ou seja, um Pod tem 5 containers e os 5 containers podem utilizar o mesmo Volume. Se um Container falhar nada vai mudar, o Volume ainda estar\'e1 l\'e1, agora se o Pod for deletado ou falhar devido todo seus containers falharem o Volume ser\'e1 apagado, tamb\'e9m morrer\'e1;\par
+H\'e1 diversos tipos de Volumes;\line\par
+
+\pard{\pntext\f1\'B7\tab}{\*\pn\pnlvlblt\pnf1\pnindent0{\pntxtb\'B7}}\fi-360\li720\sa200\sl276\slmult1 Quando o Volume morre:\par
+
+\pard\sa200\sl276\slmult1 Um volume morrer\'e1 quando o Pod que ele estiver vinculado morrer, mas isso n\'e3o quer dizer que perderemos os dados, pois os dados de um Volume podem estar "ESPELHADOS" em um diret\'f3rio do Host (nosso PC), assim se criamos um novo Volume apontando para o mesmo Path onde os arquivos foram "ESPELHADOS/DUPLICADOS" o volume voltar\'e1 a ter os mesmos dados/arquivos. O que vai determinar se perderemos os arquivos ser\'e1 o tipo de Volume a ser utilizado/configurado, pois h\'e1 diversos tipos;\line\par
+
+\pard{\pntext\f1\'B7\tab}{\*\pn\pnlvlblt\pnf1\pnindent0{\pntxtb\'B7}}\fi-360\li720\sa200\sl276\slmult1 Voume do tipo hostPath:\par
+
+\pard\sa200\sl276\slmult1 Esse tipo de Volume faz o binding de um diret\'f3rio do Host (nosso PC) com o diret\'f3rio dentro do Container, ou seja, ocorreo o "ESPELHAMENTO/DUPLICA\'c7\'c3O";\par
+\par
+
+\pard{\pntext\f1\'B7\tab}{\*\pn\pnlvlblt\pnf1\pnindent0{\pntxtb\'B7}}\fi-360\li720\sa200\sl276\slmult1 Vamos criar fora do projeto pro enquanto um exemplo de Volume do tipo hostPath no Windows. Para isso crie o arquivo pod-volume.yaml com o conte\'fado:\par
+
+\pard\sa200\sl276\slmult1\par
+apiVersion: v1\par
+kind: Pod\par
+metadata:\par
+  name: pod-volume\par
+spec:\par
+  containers:\par
+    - name: nginx-container\par
+      image: nginx:latest\par
+      volumeMounts: \par
+        - mountPath: /volume-dentro-do-container\par
+          name: primeiro-volume\par
+    - name: jenkins-container\par
+      image: jenkins:2.60.3\par
+      volumeMounts: \par
+        - mountPath: /volume-dentro-do-container\par
+          name: primeiro-volume\par
+  volumes: \par
+    - name: primeiro-volume\par
+      hostPath:\par
+        path: /C/Users/Rodrigo/Desktop/primeiro-volume\par
+        type: Directory\par
+\par
+Obs: Veja que criamos o Volume dentro do Pod, poderia ser utilizado ReplicaSet ou Deployment sem problemas;\par
+O Volume \'e9 de fato criado na "Tag" volumes: e nas "Tag's" posteriores ao volumes:\par
+Em cada Container eu indiquei o diret\'f3rio de dentro do container/imagem que ficariam armazenados os dados, isso foi feito com a "tag" volumeMounts:\par
+Em cada Container eu indiquei o volume a ser utilizado, isso foi feito com a "Tag" name: e o seu valor tem que ser o nome de um Volume criado\par
+Para podemos colocar o path do volume da maneira que colocamos temos que fazer duas coisas:\par
+I) Desabilitar o WSL 2 do Docker Desktop, isso obrigar\'e1 ativar a Virtualiza\'e7\'e3o da Bios/Processador;\line\par
+II) Em config -> Resources -> File Sharing e adicionar o diret\'f3rio Path do Volume, no caso: C:\\Users\\Rodrigo\\Desktop\\primeiro-volume\par
+\par
+
+\pard{\pntext\f1\'B7\tab}{\*\pn\pnlvlblt\pnf1\pnindent0{\pntxtb\'B7}}\fi-360\li720\sa200\sl276\slmult1 Criando de fato o Resource volume, basta rodar o comando:\par
+
+\pard\sa200\sl276\slmult1\tab\tab kubectl apply -f .\\pod-volume.yaml\par
+\par
+
+\pard{\pntext\f1\'B7\tab}{\*\pn\pnlvlblt\pnf1\pnindent0{\pntxtb\'B7}}\fi-360\li720\sa200\sl276\slmult1 Listando o Volume criado:\par
+
+\pard\sa200\sl276\slmult1\par
+\tab\tab kubectl get pods\par
+\par
+
+\pard{\pntext\f1\'B7\tab}{\*\pn\pnlvlblt\pnf1\pnindent0{\pntxtb\'B7}}\fi-360\li720\sa200\sl276\slmult1 Testando o volume, podemos entrar no terminal de um container e atrav\'e9s dele criar um arquivo. Esse mesmo arquivo precisar\'e1 aparecer na nosta pasta primeiro-volume. Para isso rode os comandos:\par
+
+\pard\sa200\sl276\slmult1\tab\tab\par
+\tab\tab kubectl exec -it pod-volume --container nginx-container -- bash\par
+\tab\tab cd volume-dentro-do-container\par
+\tab\tab touch arquivo.txt\par
+\par
+Agora basta ver se surgiu um arquivo.txt na pasta primeiro-volume.\par
+Se eu criar um arquivo diretamente na pasta primeiro-volume tamb\'e9m vou ter acesso dele dentro do container\par
+Obs: Para acessar o terminal do pod-volume tivemos que usar o --container nginx-container, pois esse pod agora tem mais de um container, logo precisamos passar o par\'e2metro --container e o nome do container que queremos entrar.\par
+\par
+
+\pard{\pntext\f1\'B7\tab}{\*\pn\pnlvlblt\pnf1\pnindent0{\pntxtb\'B7}}\fi-360\li720\sa200\sl276\slmult1 Criando Volume tipo hostPath no Linux:\par
+
+\pard\sa200\sl276\slmult1\par
+O arquivo declarado ser\'e1 o mesmo, o que muda \'e9 que n\'e3o adianta criar a pasta primeiro-volume no Host (em nosso PC), pois o Kubernete est\'e1 usando a virtualiza\'e7\'e3o do Minikube, logo temos que criar essa pasta dentro do Minikube. Para isso rode os comandos:\par
+\tab\par
+\tab minikube ssh\par
+\tab cd /home\par
+\tab sudo mkdir primeiro-volume\par
+\par
+Agora poderemos continuar a fazer os mesmos passos do Windows.\par
+H\'e1 uma outra maneira de se fazer essa pasta no Minikube, basta alterar o arquivo declarativo do pod-volume para:\par
+\par
+  volumes: # Daqui pra baixo estou criando o volume no Cluster\par
+    - name: primeiro-volume\par
+      hostPath:\par
+        path: /C/Users/Rodrigo/Desktop/primeiro-volume\par
+        type: DirectoryOrCreate\par
+\par
+Veja que mudei o type: de Directory para DirectoryOrCreate, assim quando n\'e3o existe a pasta \'e9 criada automaticamente.\par
+\par
+
+\pard{\pntext\f1\'B7\tab}{\*\pn\pnlvlblt\pnf1\pnindent0{\pntxtb\'B7}}\fi-360\li720\sa200\sl276\slmult1 Criando um PV e um PVC (Em um Cloud Provider, no caso GCP):\par
+
+\pard\sa200\sl276\slmult1\par
+Temos que ter em mente que para esses recursos funcionarem vamos precisar ter um Disco. Tendo o disco quem vai se comunicar com ele ser\'e1 o PV. E a a comunica\'e7\'e3o entre o POD com o PV ser\'e1 intermediada pelo PVC. Ficando assim:\par
+\tab\par
+\tab\tab Disco <---> PV <----> PVC <------> Pod\par
+\par
+
+\pard{\pntext\f1\'B7\tab}{\*\pn\pnlvlblt\pnf1\pnindent0{\pntxtb\'B7}}\fi-360\li720\sa200\sl276\slmult1 Criando um Disco no GCP:\par
+
+\pard\sa200\sl276\slmult1 Basta pesquisar na barra de pesquisa produtos e recursos por "disco". Entrando na se\'e7\'e3o disco basta clicar em "Criar Disco", dar um nome como "pv-disk", escolher seu tipo, pode ser  "padr\'e3o", deixar a zona igual da cria\'e7\'e3o do Cluster, escolher um tamanho, no nosso caso foi 10GB, e por fim clicar no bot\'e3o Criar;\par
+\par
+
+\pard{\pntext\f1\'B7\tab}{\*\pn\pnlvlblt\pnf1\pnindent0{\pntxtb\'B7}}\fi-360\li720\sa200\sl276\slmult1 Criar um Persistent Volume:\par
+
+\pard\sa200\sl276\slmult1 Esse recurso vai consumir os arquivos/dados do disco. Para cri\'e1-lo vamos criar o arquivo pv.yaml com o seguinte conte\'fado:\par
+\par
+apiVersion: v1\par
+kind: PersistentVolume\par
+metadata:\par
+  name: pv-1\par
+spec: # como sei quais dados informados devem ser inseridos? Doc. de gcePersistentDisk\par
+  capacity:\par
+    storage: 10Gi\par
+  accessModes:\par
+    - ReadWriteOnce\par
+  gcePersistentDisk:\par
+    pdName: pv-disk # Nome que dei no Disk l\'e1 no Google\par
+  storageClassName: standard\par
+\par
+No google, no terminal do Cluster basta rodar o comando:\par
+cat > pv.yaml (n\'e3o de enter, continua na linha abaixo)\par
+apiVersion: v1\par
+kind: PersistentVolume\par
+metadata:\par
+  name: pv-1\par
+spec: # como sei quais dados informados devem ser inseridos? Doc. de gcePersistentDisk\par
+  capacity:\par
+    storage: 10Gi\par
+  accessModes:\par
+    - ReadWriteOnce\par
+  gcePersistentDisk:\par
+    pdName: pv-disk # Nome que dei no Disk l\'e1 no Google\par
+  storageClassName: standard\par
+ (D\'e1 enter para criar o arquivo pv.yaml com o conteudo descrito)\par
+\par
+Rodar o comando:\par
+\tab\par
+\tab\tab kubectl apply -f pv.yaml\par
+\par
+Rodar o comando para ver se o PV foi criado:\par
+\par
+\tab kubectl get pv\par
+\par
+
+\pard{\pntext\f1\'B7\tab}{\*\pn\pnlvlblt\pnf1\pnindent0{\pntxtb\'B7}}\fi-360\li720\sa200\sl276\slmult1 Criar um Persistent Volume Clain (PVC):\par
+
+\pard\sa200\sl276\slmult1 Esse recurso faz o "meio de campo" entre PV e Pod, para cri\'e1-lo vamos criar o arquivo pvc.yaml, com o seguinte conte\'fado:\par
+\par
+apiVersion: v1\par
+kind: PersistentVolumeClaim\par
+metadata:\par
+  name: pvc-1\par
+spec: # A seguir vamos linkar esse PVC com o PV. N\'e3o vamos usar labels, o link ocorre quando as configura\'e7\'f5es de modo de acesso e a capacidade s\'e3o iguais ao PV. O link \'e9 por valores dos atributos!\par
+  accessModes:\par
+    - ReadWriteOnce\par
+  resources:\par
+    requests:\par
+      storage: 10Gi\par
+  storageClassName: standard\par
+\par
+Agora basta criar esse arquivo no terminal do Cluster do GCP e depois rodar o comando:\par
+\par
+\tab kubectl apply -f pvc.yaml\par
+\par
+Para listar e ver se o PVC foi criado rodar o comando:\par
+\par
+\tab kubectl get pvc\par
+\par
+
+\pard{\pntext\f1\'B7\tab}{\*\pn\pnlvlblt\pnf1\pnindent0{\pntxtb\'B7}}\fi-360\li720\sa200\sl276\slmult1 Por fim, criar um Pod que ir\'e1 "conversar" com o PVC. Veja o exemplo de um arquivo de descri\'e7\'e3o de um Pod deste tipo. Chamei o arquivo de pod-pvc:\par
+
+\pard\sa200\sl276\slmult1\par
+apiVersion: v1\par
+kind: Pod\par
+metadata:\par
+  name: pod-pv\par
+spec:\par
+  containers:\par
+    - name: nginx-container\par
+      image: nginx:latest\par
+      volumeMounts: # Aqui vou definir que o Container vai ter um diret\'f3rio linkado ao volume\par
+        - mountPath: /volume-dentro-do-container\par
+          name: primeiro-pv # Esse nome tem que bater com um Volume criado, vamos criar logo em baixo!\par
+  volumes: # Aqui eu defino que pod ter\'e1 um volume nomeado e o seu tipo\par
+    - name: primeiro-pv\par
+      persistentVolumeClaim:\par
+        claimName: pvc-1 # Nome aqui tem que ser o PVC criado no Google Cloud Plataform   \par
+\par
+Agora basta criar esse aquivo atrav\'e9s do terminal do Cluster do GCP, e criar o recurso.\par
+\par
+\par
+}
+ 

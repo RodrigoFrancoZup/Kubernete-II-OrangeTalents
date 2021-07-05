@@ -1,0 +1,8 @@
+apiVersion: v1 # Versão da API que vamos utilizar 
+kind: Pod # O que queremos criar?
+metadata: # Aqui vamos informar os dados do objeto que queremos criar
+  name: primeiro-pod-declarativo # Vamos dar esse nome ao Pod a ser criado
+spec: # Aqui vamos informar as especificações do objeto que queremos criar
+  containers: # Uma das especificações que quero dar ao Pod é o container 
+  - name: nginx-container # Nome do cointaer
+    image: nginx:latest # Imagem a ser utilizada no container

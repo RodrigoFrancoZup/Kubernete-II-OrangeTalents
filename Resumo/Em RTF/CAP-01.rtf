@@ -1,0 +1,262 @@
+{\rtf1\ansi\ansicpg1252\deff0\nouicompat\deflang1046{\fonttbl{\f0\fnil\fcharset0 Arial;}{\f1\fnil\fcharset2 Symbol;}}
+{\*\generator Riched20 10.0.19041}\viewkind4\uc1 
+\pard\sa200\sl276\slmult1\fs24\lang22 Cap\'edtulo 01 -  Conhecendo ReplicaSets e Deployments\par
+\par
+Nesse cap\'edtulo n\'f3s aprendemos:\par
+\par
+
+\pard{\pntext\f1\'B7\tab}{\*\pn\pnlvlblt\pnf1\pnindent0{\pntxtb\'B7}}\fi-360\li720\sa200\sl276\slmult1 Sobre o Resource ReplicaSets (RS). Assim como temos o Pod que \'e9 uma Capsula que guarda Containers, o ReplicaSet \'e9 uma Capsula que guarda Pod's, mas lembre-se, podemos criar Pod's sem ReplicaSet;\line\par
+{\pntext\f1\'B7\tab}Pense no ReplicaSet como uma caixinha que est\'e1 dentro do Cluster, e dentro da caixinha do ReplicaSet pode ter um ou v\'e1rios Pod's\line\par
+{\pntext\f1\'B7\tab}A vantagem de criar Pod's dentro de ReplicaSets \'e9 que dessa forma podemos replicar os Pod's, ou seja, como mesmo arquivo declarativo podemos dizer que queremos criar X quantidade de Pod's e o mais legal que o ReplicaSet passa a administrar essa quantidade, ou seja, se um Pod parar de funcionar o mesmo ser\'e1 deletado e um novo ser\'e1 criado;\line\par
+{\pntext\f1\'B7\tab}ReplicaSet sempre possui um n\'famero de Desired (quantidade desejada/configurada de Pod's) e o n\'famero Ready (quantidade que est\'e1 de fato funcionando). O ReplicaSet vai garantir que esses dois n\'fameros sejam iguais;\line\par
+{\pntext\f1\'B7\tab}Vantagem de se ter r\'e9plicas \'e9 redundancia para falhas, ou seja, se um falhar o sistema estar\'e1 rodando em outras instancias. Outro motivo \'e9 permitir o balanceamento de carga;\line\par
+{\pntext\f1\'B7\tab}Vamos deletar o Pod portal-noticias do nosso projeto. Para isso rode o comando:\line\line\tab kubectl delete pod portal-noticias\line\par
+{\pntext\f1\'B7\tab}Vamos criar um ReplicaSet. Para isso crie o arquivo portal-noticias-replicaset.yaml, esse arquivo ter\'e1:\line\par
+
+\pard\sa200\sl276\slmult1 apiVersion: apps/v1\par
+kind: ReplicaSet\par
+metadata:\par
+  name: portal-noticias-replicaset\par
+spec:\par
+  template:\par
+    metadata: \par
+      name: portal-noticias\par
+      labels:\par
+        app: portal-noticias \par
+    spec:\par
+      containers:\par
+        - name: portal-noticias-container\par
+          image: aluracursos/portal-noticias:1\par
+          ports:\par
+            - containerPort: 80\par
+          envFrom:\par
+            - configMapRef:\par
+                name: portal-configmap  \par
+  replicas: 3 \par
+  selector:\par
+    matchLabels:\par
+      app: portal-noticias \par
+\par
+Obs: Veja que come\'e7amos a definir o ReplicaSet normalmente, igual a outros Resources, a \'fanica diferen\'e7a inicial foi em apiVersion que usamos apps/v1.\par
+A defini\'e7\'e3o do Pod que ficar\'e1 dentro do ReplicaSet come\'e7a ap\'f3s a "tag" template, dela pra baixo \'e9 defini\'e7\'e3o do Pod.\par
+Ganhamos a "Tag" replicas que define a quantidade de Pod's que vamos criar dentro do ReplicaSet com a mesma configura\'e7\'e3o.\par
+Ganhamos tamb\'e9m a "Tag" selector: matchLabels: chave/valor. Esta serve para podermos "amarrar/vincular" que o Pod criado com aquele label ficar\'e1 dentro do ReplicaSet, no nosso caso amarramos o Pod com chave/valor app: portal-noticias dentro do ReplicaSet portal-noticias-replicaset.\par
+\par
+
+\pard{\pntext\f1\'B7\tab}{\*\pn\pnlvlblt\pnf1\pnindent0{\pntxtb\'B7}}\fi-360\li720\sa200\sl276\slmult1 Podemos ver nossos ReplicaSet com o comando:\par
+
+\pard\sa200\sl276\slmult1\tab\tab\par
+\tab\tab kubectl get rs\par
+\tab ou\par
+\tab\tab kubectl get ReplicaSet\par
+\par
+
+\pard{\pntext\f1\'B7\tab}{\*\pn\pnlvlblt\pnf1\pnindent0{\pntxtb\'B7}}\fi-360\li720\sa200\sl276\slmult1 Podemos ver que teremos 3 Pod's cujo container s\'e3o da imagem portal-noticias:1. Para isso rode o comando:\par
+
+\pard\sa200\sl276\slmult1\par
+\tab\tab kubectl get pods\par
+\par
+Obs: O nome desses Pod's ter\'e3o o nome do nosso ReplicaSet mais um ID aleat\'f3rio no fim, por exemplo:\par
+\tab portal-noticias-replicaset-jcrk7\par
+\tab portal-noticias-replicaset-rpgbw\par
+\par
+
+\pard{\pntext\f1\'B7\tab}{\*\pn\pnlvlblt\pnf1\pnindent0{\pntxtb\'B7}}\fi-360\li720\sa200\sl276\slmult1 Agora se deletarmos algum Pod portal-noticias-replicaset-x o ReplicaSet ir\'e1 construir um novo de forma autom\'e1tica, pois definimos que queremos ter sempre 3 replicas!\par
+
+\pard\sa200\sl276\slmult1\par
+
+\pard{\pntext\f1\'B7\tab}{\*\pn\pnlvlblt\pnf1\pnindent0{\pntxtb\'B7}}\fi-360\li720\sa200\sl276\slmult1 Os SVC continuam funcionando, pois eles foram configurados para conversarem com um Pod cujo label \'e9 portal-noticias e os Pod's continuam tendo esses label's;\line\par
+{\pntext\f1\'B7\tab}Resource Deployments:\line\par
+
+\pard\sa200\sl276\slmult1 Esse recurso \'e9 uma caixinha que fica dentro do Cluster e que vai encapsular ReplicaSet.\par
+Quando criamos um Deploments o mesmo j\'e1 cria automaticamente o seu ReplicaSet\par
+A vantagem de se criar ReplicaSet dentro de Deployments \'e9 que com o Deplyments \'e9 p\'f3ssivel termos controle de vers\'f5es e um hist\'f3rico de vers\'f5es dos Pod's/Imagens.\par
+\par
+
+\pard{\pntext\f1\'B7\tab}{\*\pn\pnlvlblt\pnf1\pnindent0{\pntxtb\'B7}}\fi-360\li720\sa200\sl276\slmult1 Criando um Deployments de exemplo (ainda fora do projeto). Para isso criamos o arquivo nginx-deployment.yaml:\par
+
+\pard\sa200\sl276\slmult1\par
+apiVersion: apps/v1\par
+kind: Deployment\par
+metadata:\par
+  name: nginx-deployment\par
+spec:\par
+  replicas: 3\par
+  template:\par
+    metadata:\par
+      name: nginx-pod\par
+      labels:\par
+        app: nginx-pod\par
+    spec:\par
+      containers:\par
+        - name: nginx-container\par
+          image: nginx:stable\par
+          ports:\par
+            - containerPort: 80\par
+  selector:\par
+    matchLabels:\par
+      app: nginx-pod     \par
+\par
+Obs: Veja que sua defini\'e7\'e3o \'e9 qauase identica com a cria\'e7\'e3o de ReplicaSet, o que muda \'e9 apenas o Kind. A "tag" replicas s\'f3 tiramos do fim do arquivo e colocamos no inicio, mas est\'e1 na mesma hierarquia/espa\'e7amento.\par
+\par
+
+\pard{\pntext\f1\'B7\tab}{\*\pn\pnlvlblt\pnf1\pnindent0{\pntxtb\'B7}}\fi-360\li720\sa200\sl276\slmult1 Podemos ver os pods criados com o comando:\par
+
+\pard\sa200\sl276\slmult1\tab\tab\par
+\tab\tab kubectl get pods\par
+\par
+
+\pard{\pntext\f1\'B7\tab}{\*\pn\pnlvlblt\pnf1\pnindent0{\pntxtb\'B7}}\fi-360\li720\sa200\sl276\slmult1 Podemos ver o Deployment criado com o comando:\par
+
+\pard\sa200\sl276\slmult1\par
+\tab\tab kubectl get Deployments\line\par
+
+\pard{\pntext\f1\'B7\tab}{\*\pn\pnlvlblt\pnf1\pnindent0{\pntxtb\'B7}}\fi-360\li720\sa200\sl276\slmult1 E podemos ver o ReplicaSet criado, pois um Deployment sempre cria um ReplicaSet de forma autom\'e1tica, com o comando:\par
+
+\pard\sa200\sl276\slmult1\par
+\tab\tab kubectl get rs\par
+\par
+
+\pard{\pntext\f1\'B7\tab}{\*\pn\pnlvlblt\pnf1\pnindent0{\pntxtb\'B7}}\fi-360\li720\sa200\sl276\slmult1 Consultando o hist\'f3rico de um Deployment:\par
+
+\pard\sa200\sl276\slmult1\par
+\tab\tab kubectl rollout history deployment nginx-deployment\par
+\par
+Veremos a vers\'e3o do Deployment (Revision) e a mudan\'e7a que houve (Change-Cause);\par
+\par
+Vamos for\'e7ar a mudan\'e7a na imagem do Pod, em image: nginx:stable vamos colocar image: nginx:latest, e depois rodar o comando "kubectl apply -f .\\nginx-deployment.yaml --record"\par
+\par
+Ao consultar novamente o hist\'f3rico, veremos que teremos a vers\'e3o 2 e a mudan\'e7a ser\'e1 o comando que rodamos, no caso: kubectl.exe apply --filename=.\\nginx-deployment.yaml --record=true\par
+\par
+S\'f3 que essa mensagem que ficou registrada no hist\'f3rico n\'e3o \'e9 muito clara, podemos alter\'e1-la com o comando:\par
+\par
+\tab kubectl annotate deployment nginx-deployment kubernetes.io/change-cause="Definindo a imagem com a vers\'e3o latest"\par
+\par
+Agora a mensagem que ficou no hist\'f3rico na revis\'e3o 2 (A mensagem sempre vai para \'faltima vers\'e3o) \'e9 Definindo a imagem com a vers\'e3o latest\par
+\par
+
+\pard{\pntext\f1\'B7\tab}{\*\pn\pnlvlblt\pnf1\pnindent0{\pntxtb\'B7}}\fi-360\li720\sa200\sl276\slmult1 Voltando para uma vers\'e3o antiga, ou seja, Rollback, sem ter que alterar o arquivo descritivo do recurso:\par
+
+\pard\sa200\sl276\slmult1\par
+\tab kubectl rollout undo deployment nginx-deployment --to-revision=1\par
+\par
+Nesse caso nossos Pod's voltar\'e3o para a vers\'e3o 1\par
+\par
+\par
+
+\pard{\pntext\f1\'B7\tab}{\*\pn\pnlvlblt\pnf1\pnindent0{\pntxtb\'B7}}\fi-360\li720\sa200\sl276\slmult1 Aplicando Deployment no nosso Projeto de noticias:\par
+
+\pard\sa200\sl276\slmult1\par
+Primeiro de tudo deletei o Deployment do nginx, pois foi somente para aprendermos o conceito.\par
+Deletei tambem o ReplicaSet portal-noticias-replicaset.\par
+\par
+\par
+
+\pard{\pntext\f1\'B7\tab}{\*\pn\pnlvlblt\pnf1\pnindent0{\pntxtb\'B7}}\fi-360\li720\sa200\sl276\slmult1 Criando o Deployment para o projeto, para isso criei o arquivo portal-noticias-deployment.yaml:\par
+
+\pard\sa200\sl276\slmult1\par
+apiVersion: apps/v1\par
+kind: Deployment \par
+metadata:\par
+  name: portal-noticias-deployment\par
+spec:\par
+  template:\par
+    metadata: \par
+      name: portal-noticias\par
+      labels:\par
+        app: portal-noticias \par
+    spec:\par
+      containers:\par
+        - name: portal-noticias-container\par
+          image: aluracursos/portal-noticias:1\par
+          ports:\par
+            - containerPort: 80\par
+          envFrom:\par
+            - configMapRef:\par
+                name: portal-configmap  \par
+  replicas: 3 \par
+  selector:\par
+    matchLabels:\par
+      app: portal-noticias \par
+\par
+
+\pard{\pntext\f1\'B7\tab}{\*\pn\pnlvlblt\pnf1\pnindent0{\pntxtb\'B7}}\fi-360\li720\sa200\sl276\slmult1 Criando de fato o recurso declarado, para isso rodar o comando:\par
+
+\pard\sa200\sl276\slmult1\par
+\tab\tab kubectl apply -f \\.portal-noticias-deployment\par
+\par
+
+\pard{\pntext\f1\'B7\tab}{\*\pn\pnlvlblt\pnf1\pnindent0{\pntxtb\'B7}}\fi-360\li720\sa200\sl276\slmult1 Vendo o hist\'f3rico deste Deployment:\par
+
+\pard\sa200\sl276\slmult1\tab\par
+\tab\tab kubectl rollout history deployment portal-noticias-deployment\tab\par
+\par
+
+\pard{\pntext\f1\'B7\tab}{\*\pn\pnlvlblt\pnf1\pnindent0{\pntxtb\'B7}}\fi-360\li720\sa200\sl276\slmult1 Alterando a mensagem do hist\'f3rico da \'faltima vers\'e3o:\par
+
+\pard\sa200\sl276\slmult1\par
+\tab kubectl annotate deployment portal-noticias-deployment kubernetes.io/change-cause="Criando portal de not\'edcias na vers\'e3o 1"\par
+\tab\par
+Ap\'f3s isso podemos confirmar a mensagem vendo novamente o hist\'f3rico.\par
+\par
+\par
+
+\pard{\pntext\f1\'B7\tab}{\*\pn\pnlvlblt\pnf1\pnindent0{\pntxtb\'B7}}\fi-360\li720\sa200\sl276\slmult1 Vamos agora criar um Deployment para guardar os Pod's db-noticias e sistema-noticias. Para isso vamos primeiro deletar esses dois Pod's e depois criar o arquivo descritivo para cada um;\line\par
+{\pntext\f1\'B7\tab}Criando sistema-noticias-deployment.yaml com o seguinte cont\'fado:\par
+
+\pard\sa200\sl276\slmult1\par
+apiVersion: apps/v1\par
+kind: Deployment\par
+metadata:\par
+  name: sistema-noticias-deployment\par
+spec:\par
+  replicas: 1\par
+  template:\par
+    metadata:\par
+      name: sistema-noticias\par
+      labels:\par
+        app: sistema-noticias\par
+    spec:\par
+      containers:\par
+        - name: sistema-noticias-container\par
+          image: aluracursos/sistema-noticias:1\par
+          ports:\par
+            - containerPort: 80\par
+          envFrom:\par
+            - configMapRef:\par
+                name: sistema-configmap\par
+  selector:\par
+    matchLabels:\par
+      app: sistema-noticias\par
+\par
+
+\pard{\pntext\f1\'B7\tab}{\*\pn\pnlvlblt\pnf1\pnindent0{\pntxtb\'B7}}\fi-360\li720\sa200\sl276\slmult1 Criando o Deployment para o db-noticias, devemos criar o arquivo db-noticias-deployment.yaml:\par
+
+\pard\sa200\sl276\slmult1\par
+apiVersion: apps/v1\par
+kind: Deployment\par
+metadata:\par
+  name: db-noticias-deployment\par
+spec:\par
+  replicas: 1\par
+  template:\par
+    metadata:\par
+      name: db-noticias\par
+      labels:\par
+        app: db-noticias\par
+    spec:\par
+      containers:\par
+        - name: db-container\par
+          image: aluracursos/mysql-db:1\par
+          ports:\par
+            - containerPort: 3306\par
+          envFrom:\par
+            - configMapRef:\par
+                name: db-configmap\par
+  selector:\par
+    matchLabels:\par
+      app: db-noticias\par
+
+\pard\sa200\sl276\slmult1\par
+}
+ 

@@ -1,0 +1,179 @@
+Capítulo 02 - Persistindo dados com o Kubernetes
+
+Nesse capítulo nós aprendemos:
+
+⦁	Do jeito que estamos fazendo estamos tendo o seguinte problema, quando um Pod é encerrado os seus arquivos são perdidos, basta ver que quando cadastramos uma mensagem e apagamos o Pod do bd-noticias e criamos outro a noticia cadastrada é perdida;
+
+⦁	Há diversos Resources com a finalidade de persistir dados, alguns deles são: Volume, Persistent Volume(PV), Persistent Volume Claim (PVC) e StorageClass (SC);
+
+⦁	Volume:
+É um Resource do Kubernete para persistir dados. Pense que ele será um "Pod" específico para guardar dados. O mesmo volume pode ser utilizado com diversos containers (lembre-se, um Pod pode ter diversos Containers), ou seja, diversos containers poderá ler e escrever no mesmo volume, mas o ciclo de vida de um Volume está sempre vinculado ao Pod desses contairners, ou seja, um Pod tem 5 containers e os 5 containers podem utilizar o mesmo Volume. Se um Container falhar nada vai mudar, o Volume ainda estará lá, agora se o Pod for deletado ou falhar devido todo seus containers falharem o Volume será apagado, também morrerá;
+Há diversos tipos de Volumes;
+
+⦁	Quando o Volume morre:
+Um volume morrerá quando o Pod que ele estiver vinculado morrer, mas isso não quer dizer que perderemos os dados, pois os dados de um Volume podem estar "ESPELHADOS" em um diretório do Host (nosso PC), assim se criamos um novo Volume apontando para o mesmo Path onde os arquivos foram "ESPELHADOS/DUPLICADOS" o volume voltará a ter os mesmos dados/arquivos. O que vai determinar se perderemos os arquivos será o tipo de Volume a ser utilizado/configurado, pois há diversos tipos;
+
+⦁	Voume do tipo hostPath:
+Esse tipo de Volume faz o binding de um diretório do Host (nosso PC) com o diretório dentro do Container, ou seja, ocorreo o "ESPELHAMENTO/DUPLICAÇÃO";
+
+⦁	Vamos criar fora do projeto pro enquanto um exemplo de Volume do tipo hostPath no Windows. Para isso crie o arquivo pod-volume.yaml com o conteúdo:
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-volume
+spec:
+  containers:
+    - name: nginx-container
+      image: nginx:latest
+      volumeMounts: 
+        - mountPath: /volume-dentro-do-container
+          name: primeiro-volume
+    - name: jenkins-container
+      image: jenkins:2.60.3
+      volumeMounts: 
+        - mountPath: /volume-dentro-do-container
+          name: primeiro-volume
+  volumes: 
+    - name: primeiro-volume
+      hostPath:
+        path: /C/Users/Rodrigo/Desktop/primeiro-volume
+        type: Directory
+
+Obs: Veja que criamos o Volume dentro do Pod, poderia ser utilizado ReplicaSet ou Deployment sem problemas;
+O Volume é de fato criado na "Tag" volumes: e nas "Tag's" posteriores ao volumes:
+Em cada Container eu indiquei o diretório de dentro do container/imagem que ficariam armazenados os dados, isso foi feito com a "tag" volumeMounts:
+Em cada Container eu indiquei o volume a ser utilizado, isso foi feito com a "Tag" name: e o seu valor tem que ser o nome de um Volume criado
+Para podemos colocar o path do volume da maneira que colocamos temos que fazer duas coisas:
+I) Desabilitar o WSL 2 do Docker Desktop, isso obrigará ativar a Virtualização da Bios/Processador;
+
+II) Em config -> Resources -> File Sharing e adicionar o diretório Path do Volume, no caso: C:\Users\Rodrigo\Desktop\primeiro-volume
+
+⦁	Criando de fato o Resource volume, basta rodar o comando:
+		kubectl apply -f .\pod-volume.yaml
+
+⦁	Listando o Volume criado:
+
+		kubectl get pods
+
+⦁	Testando o volume, podemos entrar no terminal de um container e através dele criar um arquivo. Esse mesmo arquivo precisará aparecer na nosta pasta primeiro-volume. Para isso rode os comandos:
+		
+		kubectl exec -it pod-volume --container nginx-container -- bash
+		cd volume-dentro-do-container
+		touch arquivo.txt
+
+Agora basta ver se surgiu um arquivo.txt na pasta primeiro-volume.
+Se eu criar um arquivo diretamente na pasta primeiro-volume também vou ter acesso dele dentro do container
+Obs: Para acessar o terminal do pod-volume tivemos que usar o --container nginx-container, pois esse pod agora tem mais de um container, logo precisamos passar o parâmetro --container e o nome do container que queremos entrar.
+
+⦁	Criando Volume tipo hostPath no Linux:
+
+O arquivo declarado será o mesmo, o que muda é que não adianta criar a pasta primeiro-volume no Host (em nosso PC), pois o Kubernete está usando a virtualização do Minikube, logo temos que criar essa pasta dentro do Minikube. Para isso rode os comandos:
+	
+	minikube ssh
+	cd /home
+	sudo mkdir primeiro-volume
+
+Agora poderemos continuar a fazer os mesmos passos do Windows.
+Há uma outra maneira de se fazer essa pasta no Minikube, basta alterar o arquivo declarativo do pod-volume para:
+
+  volumes: # Daqui pra baixo estou criando o volume no Cluster
+    - name: primeiro-volume
+      hostPath:
+        path: /C/Users/Rodrigo/Desktop/primeiro-volume
+        type: DirectoryOrCreate
+
+Veja que mudei o type: de Directory para DirectoryOrCreate, assim quando não existe a pasta é criada automaticamente.
+
+⦁	Criando um PV e um PVC (Em um Cloud Provider, no caso GCP):
+
+Temos que ter em mente que para esses recursos funcionarem vamos precisar ter um Disco. Tendo o disco quem vai se comunicar com ele será o PV. E a a comunicação entre o POD com o PV será intermediada pelo PVC. Ficando assim:
+	
+		Disco <---> PV <----> PVC <------> Pod
+
+⦁	Criando um Disco no GCP:
+Basta pesquisar na barra de pesquisa produtos e recursos por "disco". Entrando na seção disco basta clicar em "Criar Disco", dar um nome como "pv-disk", escolher seu tipo, pode ser  "padrão", deixar a zona igual da criação do Cluster, escolher um tamanho, no nosso caso foi 10GB, e por fim clicar no botão Criar;
+
+⦁	Criar um Persistent Volume:
+Esse recurso vai consumir os arquivos/dados do disco. Para criá-lo vamos criar o arquivo pv.yaml com o seguinte conteúdo:
+
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-1
+spec: # como sei quais dados informados devem ser inseridos? Doc. de gcePersistentDisk
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  gcePersistentDisk:
+    pdName: pv-disk # Nome que dei no Disk lá no Google
+  storageClassName: standard
+
+No google, no terminal do Cluster basta rodar o comando:
+cat > pv.yaml (não de enter, continua na linha abaixo)
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-1
+spec: # como sei quais dados informados devem ser inseridos? Doc. de gcePersistentDisk
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  gcePersistentDisk:
+    pdName: pv-disk # Nome que dei no Disk lá no Google
+  storageClassName: standard
+ (Dá enter para criar o arquivo pv.yaml com o conteudo descrito)
+
+Rodar o comando:
+	
+		kubectl apply -f pv.yaml
+
+Rodar o comando para ver se o PV foi criado:
+
+	kubectl get pv
+
+⦁	Criar um Persistent Volume Clain (PVC):
+Esse recurso faz o "meio de campo" entre PV e Pod, para criá-lo vamos criar o arquivo pvc.yaml, com o seguinte conteúdo:
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-1
+spec: # A seguir vamos linkar esse PVC com o PV. Não vamos usar labels, o link ocorre quando as configurações de modo de acesso e a capacidade são iguais ao PV. O link é por valores dos atributos!
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: standard
+
+Agora basta criar esse arquivo no terminal do Cluster do GCP e depois rodar o comando:
+
+	kubectl apply -f pvc.yaml
+
+Para listar e ver se o PVC foi criado rodar o comando:
+
+	kubectl get pvc
+
+⦁	Por fim, criar um Pod que irá "conversar" com o PVC. Veja o exemplo de um arquivo de descrição de um Pod deste tipo. Chamei o arquivo de pod-pvc:
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-pv
+spec:
+  containers:
+    - name: nginx-container
+      image: nginx:latest
+      volumeMounts: # Aqui vou definir que o Container vai ter um diretório linkado ao volume
+        - mountPath: /volume-dentro-do-container
+          name: primeiro-pv # Esse nome tem que bater com um Volume criado, vamos criar logo em baixo!
+  volumes: # Aqui eu defino que pod terá um volume nomeado e o seu tipo
+    - name: primeiro-pv
+      persistentVolumeClaim:
+        claimName: pvc-1 # Nome aqui tem que ser o PVC criado no Google Cloud Plataform   
+
+Agora basta criar esse aquivo através do terminal do Cluster do GCP, e criar o recurso.
+

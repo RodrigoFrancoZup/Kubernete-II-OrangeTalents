@@ -1,0 +1,6 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: portal-configmap
+data:
+  IP_SISTEMA: http://localhost:30001 #No linux teremos que trocar localhost por Internal IP

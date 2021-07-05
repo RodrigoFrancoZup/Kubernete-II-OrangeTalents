@@ -1,0 +1,86 @@
+Capítulo 04 - Checando status com Probes
+
+Nesse capítulo nós aprendemos:
+
+⦁	Que o Kubernete consegue avaliar se o Pod foi criado e está funcionando corretamente, mas o Kubernet não vai saber definir se a aplicação rodando dentro do Pod está de fato funcionando;
+
+⦁	Podemos criar "Testes" para ver se fato a aplicação rodando está funcionando, esses testes serão as Probes. Há três tipos de Probes: Liveness, Readiness e Startup Probes;
+
+⦁	As Probes fazem requisições do tipo HTTP e TCP;
+
+⦁	Liveness Probes:
+Com esse o Kubernete vai saber verificar se a aplicação está funcionando, caso não esteja o Pod será reiniciado na tentativa de corrigir o Bug. O responsável por isso é o Kubelet, é ele que consegue extair as informações das Probes e reiniciar o Pod;
+
+⦁	Aplicando Liveness Probes no portal-noticias-deployment (em seu arquivo declarativo):
+ Alinhado com a "Tag" Env eu coloquei:
+
+livenessProbe: # A seguir vou definir que tipo de teste quero fazer para verificar se APP está funcionando
+            httpGet: # O teste que vou fazer sera uma requsição get
+              path: / # A barra indica que é localhost o endereço que vou fazer a request get. O portal só tem o endereço localhost
+              port: 80 # Utilizei essa porta, pois e nessa que o container usa dentro do Cluster, veja o valor de containerPort 
+            periodSeconds: 10 # De quanto em quanto tempo vai rodar o test
+            failureThreshold: 3 # Quantiade de falha que vou aceitar
+            initialDelaySeconds: 20 # Tempo de folga que vou dar para reiniciar o Container só depois rodar os testes  
+
+Obs: Não precisiamos definir o valor esperado. Por padão se o Status da request for 2xx é teste aprovado, se for status 1xx, 4xx e 5xx será falha. 
+
+Veja como ficou o arquivo completo de portal-noticias-deployment.yaml:
+
+apiVersion: apps/v1
+kind: Deployment 
+metadata:
+  name: portal-noticias-deployment
+spec:
+  template:
+    metadata: 
+      name: portal-noticias
+      labels:
+        app: portal-noticias 
+    spec:
+      containers:
+        - name: portal-noticias-container
+          image: aluracursos/portal-noticias:1
+          ports:
+            - containerPort: 80
+          envFrom:
+            - configMapRef:
+                name: portal-configmap
+          livenessProbe: 
+            httpGet: 
+              path: / 
+              port: 80  
+            periodSeconds: 10 
+            failureThreshold: 3 
+            initialDelaySeconds: 20 
+  replicas: 3 
+  selector:
+    matchLabels:
+      app: portal-noticias 
+
+⦁	Devemos aplicar essas atualizações com o comando:
+		
+		kubectl apply -f .\portal-noticias.deployment.yaml
+
+⦁	Readiness Probes:
+A finalidade desse é definir se um Pod já está pronto para receber requisições, pois sempre que um Pod é criado ele não fica pronto imediatamente, há processos por trás, por exemplo: Um pode que foi criado, talvez ele esteja pronto, mas a imagem do container ainda está sendo baixada, ou executando script...
+
+⦁	Aplicando Readiness no sistema-noticias-statefullset (no seu arquivo descritivo):
+
+Logo depois da "Tag" de livenessProbe, eu coloquei:
+
+readinessProbe: # A seguir vou definir que tipo de teste quero fazer para verificar se APP está pronta para receber request
+            httpGet: # O teste que vou fazer sera uma requsição get
+              path: /inserir_noticias.php # Para esse endereço que vou fazer request. 
+              port: 80 # Utilizei essa porta, pois e nessa que o container usa dentro do Cluster, veja o valor de containerPort 
+            periodSeconds: 10 # De quanto em quanto tempo vai rodar o test
+            failureThreshold: 5 # Quantiade máxima que vou verficiar se o Pod está pronto. Se passar disso vou ignorar e passar a utilizar o Pod.
+            initialDelaySeconds: 3 # Tempo de folga que vou dar para reiniciar o Container só depois rodar os testes
+
+⦁	Agora temos que atulizar o arquivo, rodando o comando:
+
+	kubectl apply -f .\sistema-noticias-statefullset.yaml
+          
+⦁	Ainda existe a Probe Startup, ela é indicada para Sistema Legados. Caso precise usá-la, leia a documentação.
+
+
+

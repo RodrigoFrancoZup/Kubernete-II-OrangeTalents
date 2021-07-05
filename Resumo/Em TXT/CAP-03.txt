@@ -1,0 +1,211 @@
+Capítulo 03 - Storage Classes e StatefulSets
+
+Nesse capítulo nós aprendemos:
+
+⦁	Mais Resources (recursos) cuja finalidade é armazenar dados. Vamos falar sobre StorageClasses e StatefulSets;
+
+⦁	No capítulo anterior tivemos que criar Manualmente lá no GCP:
+
+I) O Disco, que no caso era uma máquina que escolhemos o tamanho do seu HD/SSD que armazenaria os dados;
+II) PersistentVolume (PV): Recurso indepentende do Pod e responsável por abstrair como o Cloud Provider escolhido (no caso GCP) armazena os dados;
+III) PersistentVolumeClain (PVC): serve como passaporte, "meio de campo" para o Pod acessar o PV;
+IV) Pod, que no caso tem a imagem da  aplicação rodando e que vai acessar o PV para assim poder ter acesso aos arquivos;
+
+⦁	Com o Storage Class (SC) vamos poder criar dinamicamente o Disco e o PersistentVolume (PV), conforme a necessidade. No caso vamos ter que definir um Storage Classes, construir o Pod (Pode ser ReplicaSet, Deployment) e o PersistentVolumeClaim, quando o Pod for vinculado ao PVC o Disco e o PV serão criados;
+
+⦁	Foi limpo o Cluser lá no GCP, todos recursos foram apagados;
+
+⦁	Vamos criar o arquivo de definição de Storage Classes, para isso criei o arquivo sc.yaml, com o seguinte conteúdo:
+
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: slow
+provisioner: kubernetes.io/gce-pd
+parameters:
+  type: pd-standard
+  fstype: ext4
+  replication-type: none
+
+Lembre-se que podemos pegar alguns exemplos no site do Kubernetes, esse mesmo foi pego no site: https://kubernetes.io/docs/concepts/storage/storage-classes/ na opção GCEPersistentDisk
+
+⦁	Vamos criar com esse aquivo (sc.yaml) um StorageClass lá no GPC, basta criar esse aquivo através do Terminal do Cluster do GPC. Basta fazer no terminal do GCP:
+
+cat > sc.yaml
+//Abaixo, sem dar enter colar o conteúdo todo do arquivo definido anteriormente, e depois dar enter
+
+Após o "enter" basta rodar "kubectl apply -f .\sc.yaml"
+
+⦁	Ainda não haverá criação de disco e nem de PV automaticamente, precisamos criar ainda o PVC. Para isso criei o arquivo pvc-sc.yaml com o seguinte conteúdo:
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-2
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: slow #Antes era standard pois usava o SC padrão do Cloud Provider, agora criamos o nosso SC chamado slow
+
+⦁	Agora precisamos criar de fato esse arquivo lá no GCP, ou seja, devemos rodar o comando no terminal do Cluster do GCP:
+
+cat > pvc-sc.yaml
+//Abaixo, sem dar enter colar o conteúdo todo do arquivo definido anteriormente, e depois dar enter
+
+Após o "enter" basta rodar "kubectl apply -f .\pvc-sc.yaml"
+
+⦁	Agora podemos ver que o pvc foi criado com o comando "kubectl get pvc";
+
+⦁	E se rodarmos o comando "kubectl get pv" vamos ver que um PV foi criado e  também podemos ir na seção de Disk do GCP e veremos que já foi criado um Disco, ou seja, agora já está funcionando (Disco e PV são criados automaticamente)!
+
+⦁	O que falta agora é criar um Pod (poderá ser ReplicaSet, Deployment) que terá seu volume vinculado ao PVC (É assim que fazemos a conversa entre Pod e PVC). Vamos criar o arquivo pod-pvc-sc.yaml, com o seguinte conteudo:
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-sc
+spec:
+  containers:
+    - name: nginx-container
+      image: nginx:latest
+      volumeMounts: 
+        - mountPath: /volume-dentro-do-container
+          name: primeiro-pv 
+  volumes: 
+    - name: primeiro-pv
+      persistentVolumeClaim:
+        claimName: pvc-2 
+
+⦁	Agora precisamos criar de fato esse arquivo lá no GCP, ou seja, devemos rodar o comando no terminal do Cluster do GCP:
+
+cat > pod-pvc-sc.yaml
+//Abaixo, sem dar enter colar o conteúdo todo do arquivo definido anteriormente, e depois dar enter
+
+⦁	Agora sim, temos o Pod chamado pod-sc vinculado a um volume que é criado dinamicamente via Storage Class (SC). Logo se entramos no terminal desse pod com o comando "kubectl exec -it pod-sc -- bash" entrar na pasta volume-dentro-do-container com o comando "cd volume-dentro-do-container" e criar um arquivo, esse arquivo durará até deletarmos o Disco, pode o Pod morrer que nada acontecerá!
+
+⦁	Se matarmos o PVC e o SC o Disco criado dinamicamente também será apagado!
+
+⦁	Recurso Stateful Set:
+É muito parecido com o Recurso Deployment, mas no caso os "Pod's" criados dentro desse recurso vão manter seu estado, ou seja, se o Pod for reiniciado os arquivos são mantidos.
+Todo Pod dentro do Stateful Set terá seu PVC e seu PV.
+Cada Pod dentro do Stateful Set ganha um identificador, ordinal, vamos dar exemplo o primeiro Pod ganhou idetentificador 1, se ele morrer o Pod a ser criado no lugar também terá o identificador 1, e é por isso que ele terá acesso ao mesmo PVC.
+
+⦁	Criando um StateFul Set agora no projeto noticias. Vamos criar o arquivo sistema-noticias-statefullset.yaml, com o seguinte arquivo:
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: sistema-noticias-statefulset
+spec:
+  replicas: 1
+  template: # Daqui começo a definir os "Pod's"
+    metadata:
+      labels:
+        app: sistema-noticias
+      name: sistema-noticias
+    spec:
+      containers:
+        - name: sistema-noticias-container
+          image: aluracursos/sistema-noticias:1
+          ports:
+            - containerPort: 80
+          envFrom:
+            - configMapRef:
+                name: sistema-configmap
+  selector:
+    matchLabels:
+      app: sistema-noticias
+  serviceName: svc-sistema-noticias  #Serviço que permite o acesso externo!
+
+⦁	Nesse ponto criamos o nosso Stateful Set, mas ainda não temos o PV o PVC, vamos fazer isso acontecer a seguir;
+
+⦁	Vamos criar um PVC que vai acessar o PV que guardará as imagens, para isso criei o arquivo imagens-pvc.yaml, com o seguinte conteudo:
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: imagens-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+
+⦁	Vamos criar um PVC que vai acessar o PV que guardará a sessao, para isso criei o arquivo sessao-pvc.yaml, com o seguinte conteudo:
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: sessao-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+
+⦁	Agora vamos editar o arquivo descritivo sistema-noticias-statefullset.yaml, vamos adicionar nele os PVC. O arquivo ficará assim: 
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: sistema-noticias-statefulset
+spec:
+  replicas: 1
+  template: # Daqui começo a definir os "Pod's"
+    metadata:
+      labels:
+        app: sistema-noticias
+      name: sistema-noticias
+    spec:
+      containers:
+        - name: sistema-noticias-container
+          image: aluracursos/sistema-noticias:1
+          ports:
+            - containerPort: 80
+          envFrom:
+            - configMapRef:
+                name: sistema-configmap
+          volumeMounts:
+            - name: imagens
+              mountPath: /var/www/html/upload # Diretorio do container que guarda as imagens
+            - name: sessao
+              mountPath: /tmp # Diretorio do container que guarda a sessão
+      volumes:
+        - name: imagens
+          persistentVolumeClaim: #Temos que criar esses PVC's
+            claimName: imagens-pvc 
+        - name: sessao
+          persistentVolumeClaim:
+            claimName: sessao-pvc               
+  selector:
+    matchLabels:
+      app: sistema-noticias
+  serviceName: svc-sistema-noticias  #Serviço que permite o acesso externo!    
+
+⦁	Vamos dar um "kubectl apply -f nomeDosArquivos" para os últimos três arquivos criados.
+
+⦁	Podemos dar agora "kubectl get pvc" e veremos que já temos os PVC criados, só que estranhamente eles já estão utilizando um volume (já estão Bound), só que nós não criamos nenhum Volume, como isso ocorreu? É que o Cluster já vem com um Storage Class padão, e como criamos um PVC sem definir qual PV vamos usar ele (Storage Class) criou um PV para nós!
+
+⦁	É recomendável deletar o sistema-noticias-statefullset.yaml e criá-lo após ter criado os PVC's, assim ocorrerá o Bound correto!
+
+⦁	Para tudo voltar a funcionar deu deixei rodando:
+db-configmap
+db-noticias-deployment
+imagens-pvc
+portal-configmap
+portal-noticias-deployment
+sessao-pvc
+sistema-configmap
+sistema-noticias-statefullset
+svc-db-noticias
+svc-portal-noticias
+svc-sistema-noticias
+
+
+
+

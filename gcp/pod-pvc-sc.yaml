@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-sc
+spec:
+  containers:
+    - name: nginx-container
+      image: nginx:latest
+      volumeMounts: # Aqui vou definir que o Container vai ter um diretório linkado ao volume
+        - mountPath: /volume-dentro-do-container
+          name: primeiro-pv # Esse nome tem que bater com um Volume criado, vamos criar logo em baixo!
+  volumes: # Aqui eu defino que pod terá um volume nomeado e o seu tipo
+    - name: primeiro-pv
+      persistentVolumeClaim:
+        claimName: pvc-2 # Nome aqui tem que ser o PVC criado no Google Cloud Plataform, o pvc-2 que é do Storage Class        

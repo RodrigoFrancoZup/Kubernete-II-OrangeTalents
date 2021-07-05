@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-1
+spec: # A seguir vamos linkar esse PVC com o PV. Não vamos usar labels, o link ocorre quando as configurações de modo de acesso e a capacidade são iguais ao PV. O link é por valores dos atributos!
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: standard

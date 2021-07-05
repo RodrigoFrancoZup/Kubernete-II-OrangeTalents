@@ -1,0 +1,74 @@
+Capítulo 05 - Como escalar com o Horizontal Pod Autoscaler
+
+Nesse capítulo nós aprendemos:
+
+⦁	Como aumentar a quantidade de Pod, ReplicaSet ou StatefulSets automaticamente conforme o uso de recurso computacional vai chegando próximo do limite que vamos definir;
+
+⦁	Quando o uso de recurso computacional diminuir a quantidade de Pod, ReplicaSet e Statefulsets também vai diminuir;
+
+⦁	O Resource do Kubernete que vai fazer isso: Horizontal Pod Autoscaler;
+
+⦁	O Horizontal Pod Autoscaler funciona através de métricas, então antes de criar um arquivo para declarar esse Resource, temos que ir no arquivo do Pod que queremos aplicar a escalabilidade horizontal, no nosso caso será o arquivo portal-noticias-deployment.yaml e definir nele a quantidade necessária de um recurso computacional para rodar a aplicação. Vamos definir que para os Pods do container portal-noticias-container faz uso de 10 milicores de CPU. No arquivo portal-noticias-deployment.yaml, alinhado com a "Tag" image temos que adicionar o trecho:
+
+          resources:
+            requests:
+              cpu: 10m
+
+⦁	Agora podemos criar o arquivo declarativo do Horizontal Pod Autoscaler, pois ele também é um objeto da Api. Vamos criar o arquivo portal-noticias-hpa.yaml, com o seguinte conteúdo:
+
+apiVersion: autoscaling/v2beta2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: portal-noticias-hpa
+spec:
+  scaleTargetRef: # A seguir, vou definir qual tipo de Resource vou criar automaticamente quando o recurso computacional aumentar. No caso será o Deployment chamado portal-noticias-deployment
+    apiVersion: apps/v1
+    kind: Deployment 
+    name: portal-noticias-deployment
+  minReplicas: 1 # Quantidade mínima, que sempre vai ter!
+  maxReplicas: 10 # Quantidade máxima, não importa se o recurso computacional estiver muito elevado...
+  metrics: # A seguir, começo a definir qual parâmetro de recurso computacional será analisado para poder criar o recurso automaticamente.
+    - type: Resource
+      resource:
+        name: cpu # O parâmetro de analise será a CPU
+        target:
+          type: Utilization # Defino que vou analisar o uso de CPU
+          averageUtilization: 50 # Defini no Deployment chamado portal-noticias-deployment que seu Pod faz uso de 10m de Core, e aqui estou definindo que quando o mesmo chegar em 50% de uso devemos criar mais Deployment
+
+⦁	Agora temos que rodar os comandos:
+
+		kubectl apply -f .\portal-noticias-deployment.yaml
+		kubectl apply -f .\portal-noticias-hpa.yaml
+
+⦁	O Resource Horizontal Pod Autoscaler foi criado, mas ao rodar o comando "kubectl get hpa" veremos que esse recurso não está conseguindo pegar a métrica de referencia de 10m core do Pod. Precisamos de um Servidor de Métricas;
+
+⦁	Servidor de métricas no Windows:
+
+1) Acesse o site: https://github.com/kubernetes-sigs/metrics-server/releases;
+2) Ecolha sua versão (Escolhi a v0.3.7) e baixe seu arquivo components.yaml
+3) Como estamos no windows, teremos que adicionar um trecho de código nesse aquivo. Na "tag" args adicionar:
+	- --kubelet-insecure-tls
+4) Agora podemos rodar o comando:
+	 kubectl apply -f .\components.yaml
+
+⦁	Teremos que esperar um pouco agora para o servidor começar a funcionar!
+
+⦁	Vamos agora estressar nosso Pod com requsições, para vermos a criação de Pod automaticamente. Para isso crie o arquivo stress.sh (script bash) com o conteúdo:
+
+	#!/bin/bash
+for i in {1..10000}; do
+  curl localhost:30000
+  sleep $1
+done
+
+Depois rode o comando:
+	sh stress.sh 0.001 > out.txt
+
+⦁	Servidor de métricas no Linux:
+1) No terminal rodar o comando:
+	minikube addons list
+Para vermos se o metrics-server está habilitado
+2) Caso tenha que habilitá-lo rode o comando:
+	minikube addons enable metrics-server
+
+3) Agora podemos estressar o Pod rodando o arquivo stress.sh e veremos a escalabilidade horizontal.
